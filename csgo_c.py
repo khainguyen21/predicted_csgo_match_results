@@ -7,13 +7,45 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import classification_report
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from statsmodels.tools import categorical
+
 data = pd.read_csv("csgo.csv")
 
 # profile = ProfileReport(data, title = "CSGO Report", explorative=True)
 # profile.to_file("csgo_report.html")
 
-column_to_drop = ["map", "day", "month", "year", "date"]
+column_to_drop = ["day", "month", "year", "date"]
 data = data.drop(columns=column_to_drop)
+
+
+# categorical_feature = ['Dust II', 'Mirage', 'Cache',
+#                        'Cobblestone', 'Inferno',  'Overpass',
+#                        'Austria', 'Nuke', 'Canals', 'Italy']
+#
+# map_transformer = Pipeline(steps= [("imputer", SimpleImputer(strategy="most_frequent")),
+#                                    ("Scaler", OneHotEncoder(categories=[categorical_feature], handle_unknown="ignore"))])
+#
+# # Apply the transformer to 'map' column
+# map_encoded = map_transformer.fit_transform(data[['map']])
+#
+# # Convert encoded output to DataFrame
+# map_encoded_df = pd.DataFrame.sparse.from_spmatrix(
+#     map_encoded,
+#     columns=map_transformer.named_steps['Scaler'].get_feature_names_out(['map'])
+# )
+#
+# # Drop original 'map' column and concatenate encoded data
+# data = pd.concat([data.drop('map', axis=1), map_encoded_df], axis=1)
+
+# Obtain the name of numerical column
+# numerical_feature = data.select_dtypes(include=['int64', 'float64']).columns
+numerical_feature = ['wait_time_s', 'match_time_s', 'team_a_rounds', 'team_b_rounds', 'ping', 'kills', 'assists', 'deaths'
+                     ,'mvps', 'hs_percent', 'points']
+#categorical_feature = data.select_dtypes(include=['category', 'object']).columns
+categorical_feature = ['map']
+
 
 y = data["result"]
 x = data.drop("result", axis = 1)
@@ -21,17 +53,29 @@ x = data.drop("result", axis = 1)
 x_train, x_test, y_train, y_test = train_test_split(
     x, y, test_size=0.2, random_state=42)
 
+numerical_transformer = Pipeline([("imputer", SimpleImputer(strategy= "median")),
+                                  ("scaler", StandardScaler())])
+
+categorical_transformer = Pipeline([("imputer", SimpleImputer(strategy="most_frequent")),
+                                ("encoder", OneHotEncoder(handle_unknown='ignore'))])
+
+preprocessor = ColumnTransformer(transformers=[("num", numerical_transformer, numerical_feature),
+                                               ("cat", categorical_transformer, categorical_feature)])
+
+
+x_train = preprocessor.fit_transform(x_train)
+x_test = preprocessor.transform(x_test)
 
 
 # clf = LazyClassifier(verbose=0, ignore_warnings=True, custom_metric=None)
 # models, predictions = clf.fit(x_train, x_test, y_train, y_test)
 
-num_transformer = Pipeline(steps = [("imputer", SimpleImputer(strategy= "median")),
-                                     ("scaler", StandardScaler())
-                            ])
+# num_transformer = Pipeline(steps = [("imputer", SimpleImputer(strategy= "median")),
+#                                      ("scaler", StandardScaler())
+#                             ])
 
-x_train = num_transformer.fit_transform(x_train)
-x_test = num_transformer.transform(x_test)
+# x_train = num_transformer.fit_transform(x_train)
+# x_test = num_transformer.transform(x_test)
 
 params = {"n_estimators": [50, 100, 200],
           "criterion": ["gini", "entropy", "log_loss"],
@@ -52,5 +96,7 @@ y_predicted = model.predict(x_test)
 for i, j in zip(y_predicted, y_test):
     print(f"Prediction: {i}, Actual: {j}")
 
-# print(classification_report(y_test, y_predicted))
+print(classification_report(y_test, y_predicted))
+
+print(model.best_score_)
 
