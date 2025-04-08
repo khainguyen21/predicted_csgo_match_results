@@ -3,13 +3,13 @@ import pandas as pd
 from sklearn.model_selection import train_test_split, GridSearchCV
 from lazypredict.Supervised import LazyClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import classification_report
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
-from statsmodels.tools import categorical
 
 data = pd.read_csv("csgo.csv")
 
@@ -53,6 +53,11 @@ x = data.drop("result", axis = 1)
 x_train, x_test, y_train, y_test = train_test_split(
     x, y, test_size=0.2, random_state=42)
 
+clf = LazyClassifier(verbose=0, ignore_warnings=True, custom_metric=None)
+models, predictions = clf.fit(x_train, x_test, y_train, y_test)
+
+
+
 numerical_transformer = Pipeline([("imputer", SimpleImputer(strategy= "median")),
                                   ("scaler", StandardScaler())])
 
@@ -66,10 +71,6 @@ preprocessor = ColumnTransformer(transformers=[("num", numerical_transformer, nu
 x_train = preprocessor.fit_transform(x_train)
 x_test = preprocessor.transform(x_test)
 
-
-# clf = LazyClassifier(verbose=0, ignore_warnings=True, custom_metric=None)
-# models, predictions = clf.fit(x_train, x_test, y_train, y_test)
-
 # num_transformer = Pipeline(steps = [("imputer", SimpleImputer(strategy= "median")),
 #                                      ("scaler", StandardScaler())
 #                             ])
@@ -77,14 +78,17 @@ x_test = preprocessor.transform(x_test)
 # x_train = num_transformer.fit_transform(x_train)
 # x_test = num_transformer.transform(x_test)
 
-params = {"n_estimators": [50, 100, 200],
-          "criterion": ["gini", "entropy", "log_loss"],
-          #"max_depth": [10, 20, None]
-          }
+# paramsRandomForest = {"n_estimators": [50, 100, 200],
+#           "criterion": ["gini", "entropy", "log_loss"],
+#           "max_depth": [10, 20, None]
+#           }
 
+paramsDecisionTree = {"criterion": ["gini", "entropy", "log_loss"],
+                      "splitter": ["best", "random"],
+                      "max_depth": [None, 50, 100]}
 
-model = GridSearchCV(estimator=RandomForestClassifier(random_state=42),
-                     param_grid=params,
+model = GridSearchCV(estimator= DecisionTreeClassifier(random_state=42),
+                     param_grid=paramsDecisionTree,
                      scoring="accuracy",
                      cv = 6)
 
@@ -93,10 +97,12 @@ model.fit(x_train, y_train)
 y_predicted = model.predict(x_test)
 
 
-for i, j in zip(y_predicted, y_test):
-    print(f"Prediction: {i}, Actual: {j}")
+# for i, j in zip(y_predicted, y_test):
+#     print(f"Prediction: {i}, Actual: {j}")
 
 print(classification_report(y_test, y_predicted))
 
 print(model.best_score_)
+print(model.best_params_)
+
 
